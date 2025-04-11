@@ -1,0 +1,206 @@
+<div id="multi-event-tracker" style="max-width: 800px; margin: 40px auto; font-family: 'Segoe UI', sans-serif; padding: 10px;"></div>
+
+<script>
+  document.addEventListener("DOMContentLoaded", function () {
+    const container = document.getElementById("multi-event-tracker");
+    const SHEET_URL = "https://script.google.com/macros/s/AKfycbwpZdMrSm94gBm5_XDxGNk1PUY31zfzwbJuFtj4fFEAjQJPH07DYJZEP8qc7jcRWJJO5g/exec";
+    let events = [];
+
+    function fetchEvents() {
+      renderForm(); // Ensure form always renders
+      fetch(SHEET_URL)
+        .then((res) => res.json())
+        .then((data) => {
+          events = data;
+          renderEvents();
+        })
+        .catch((err) => {
+          console.error("Error fetching events:", err);
+          renderEvents();
+        });
+    }
+
+    function addEventToSheet(eventData) {
+      fetch(SHEET_URL, {
+        method: "POST",
+        body: JSON.stringify(eventData),
+        headers: { "Content-Type": "application/json" },
+      }).then(fetchEvents);
+    }
+
+    function deleteEventFromSheet(id) {
+      fetch(SHEET_URL, {
+        method: "POST",
+        body: JSON.stringify({ id }),
+        headers: { "Content-Type": "application/json", "X-HTTP-Method-Override": "DELETE" },
+      }).then(fetchEvents);
+    }
+
+    function renderForm() {
+      container.innerHTML = `
+        <div style="background: #f9f9f9; border-radius: 16px; padding: 20px; border: 1px solid #ddd; box-shadow: 0 4px 10px rgba(0,0,0,0.05); text-align: center;">
+          <h2 style="margin-bottom: 16px; font-size: 22px; color: #333;">🎉 Add New Countdown</h2>
+          <div style="display: flex; flex-direction: column; gap: 12px; max-width: 400px; margin: auto; align-items: center;">
+
+            <div style="width: 100%; display: flex; align-items: center; gap: 10px;">
+              <input id="eventTitle" placeholder="Event Title"
+                style="flex: 1; padding: 10px; font-size: 14px; border: 1px solid #ccc; border-radius: 6px;" />
+
+              <input type="datetime-local" id="eventDate"
+                style="opacity: 0; position: absolute; pointer-events: none;" />
+
+              <button id="dateTrigger"
+                style="padding: 10px; background: #e0e0e0; border: none; border-radius: 6px; cursor: pointer;" title="Pick date">
+                📅
+              </button>
+            </div>
+
+            <input type="password" id="eventPassword" placeholder="Password"
+              style="width: 100%; padding: 6px; font-size: 12px; border: 1px solid #ccc; border-radius: 6px;" />
+
+            <div style="display: flex; justify-content: center; gap: 8px; width: 100%;">
+              <label style="flex: 1; font-size: 12px;">Background
+                <input type="color" id="bgColor" value="#111111" style="width: 100%; padding: 4px; border-radius: 6px;" />
+              </label>
+              <label style="flex: 1; font-size: 12px;">Text
+                <input type="color" id="textColor" value="#ffffff" style="width: 100%; padding: 4px; border-radius: 6px;" />
+              </label>
+            </div>
+
+            <div style="display: flex; justify-content: center; gap: 8px; width: 100%;">
+              <label style="flex: 1; font-size: 12px;">Timer Font
+                <select id="fontSize" style="width: 100%; padding: 8px; border-radius: 6px;">
+                  <option value="28px">Small</option>
+                  <option value="40px" selected>Medium</option>
+                  <option value="60px">Large</option>
+                </select>
+              </label>
+              <label style="flex: 1; font-size: 12px;">Title Font
+                <select id="titleSize" style="width: 100%; padding: 8px; border-radius: 6px;">
+                  <option value="18px">Small</option>
+                  <option value="24px" selected>Medium</option>
+                  <option value="32px">Large</option>
+                </select>
+              </label>
+            </div>
+
+            <button id="createEvent" style="padding: 10px 16px; background: #4CAF50; color: white; font-size: 14px; border: none; border-radius: 6px; cursor: pointer;">
+              ➕ Create Event
+            </button>
+          </div>
+        </div>
+
+        <div id="eventList" style="margin-top: 40px; display: flex; flex-direction: column; gap: 20px; align-items: center;"></div>
+      `;
+
+      setTimeout(() => {
+        const trigger = document.getElementById("dateTrigger");
+        const hiddenInput = document.getElementById("eventDate");
+        trigger.addEventListener("click", () => hiddenInput.showPicker());
+      }, 0);
+
+      document.getElementById("createEvent").addEventListener("click", () => {
+        const title = document.getElementById("eventTitle").value;
+        const datetime = document.getElementById("eventDate").value;
+        const password = document.getElementById("eventPassword").value;
+        const bg = document.getElementById("bgColor").value;
+        const text = document.getElementById("textColor").value;
+        const fontSize = document.getElementById("fontSize").value;
+        const titleSize = document.getElementById("titleSize").value;
+
+        if (!title || !datetime || !password) {
+          alert("Please fill in title, date, and password.");
+          return;
+        }
+
+        const newEvent = { id: Date.now().toString(), title, datetime, bg, text, fontSize, titleSize, password };
+        addEventToSheet(newEvent);
+      });
+    }
+
+    function renderEvents() {
+      const list = document.getElementById("eventList");
+      if (!list) return;
+      list.innerHTML = "";
+
+      events.forEach((event, index) => {
+        const box = document.createElement("div");
+        box.style.cssText = `
+          padding: 20px;
+          border-radius: 12px;
+          background: ${event.bg};
+          color: ${event.text};
+          font-size: ${event.fontSize};
+          width: 100%;
+          max-width: 500px;
+          text-align: center;
+          position: relative;
+          box-shadow: 0 3px 8px rgba(0,0,0,0.1);
+          word-wrap: break-word;
+        `;
+
+        const title = document.createElement("h3");
+        title.textContent = event.title;
+        title.style.fontSize = event.titleSize;
+        title.style.marginBottom = "10px";
+        box.appendChild(title);
+
+        const timer = document.createElement("div");
+        timer.style.fontWeight = "bold";
+        timer.style.marginTop = "8px";
+        box.appendChild(timer);
+
+        function update() {
+          const now = new Date();
+          const target = new Date(event.datetime);
+          let diff = target - now;
+          let mode = "left";
+
+          if (diff < 0) {
+            diff = Math.abs(diff);
+            mode = "since";
+          }
+
+          const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+          const hours = Math.floor((diff / (1000 * 60 * 60)) % 24);
+          const minutes = Math.floor((diff / (1000 * 60)) % 60);
+          const seconds = Math.floor((diff / 1000) % 60);
+
+          timer.textContent = `${days}d ${hours}h ${minutes}m ${seconds}s ${mode}`;
+        }
+
+        update();
+        setInterval(update, 1000);
+
+        const delBtn = document.createElement("button");
+        delBtn.textContent = "Delete";
+        delBtn.style.cssText = `
+          position: absolute;
+          bottom: 10px;
+          right: 10px;
+          padding: 4px 10px;
+          font-size: 12px;
+          border-radius: 6px;
+          border: none;
+          background: #e74c3c;
+          color: #fff;
+          cursor: pointer;
+        `;
+
+        delBtn.onclick = () => {
+          const enteredPass = prompt("Enter password to delete this event:");
+          if (enteredPass === event.password) {
+            deleteEventFromSheet(event.id);
+          } else {
+            alert("Incorrect password. Deletion cancelled.");
+          }
+        };
+
+        box.appendChild(delBtn);
+        list.appendChild(box);
+      });
+    }
+
+    fetchEvents();
+  });
+</script>
