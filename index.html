@@ -3,37 +3,43 @@
 <script>
   document.addEventListener("DOMContentLoaded", function () {
     const container = document.getElementById("multi-event-tracker");
-    const SHEET_URL = "https://script.google.com/macros/s/AKfycbwpZdMrSm94gBm5_XDxGNk1PUY31zfzwbJuFtj4fFEAjQJPH07DYJZEP8qc7jcRWJJO5g/exec";
-    let events = [];
+    const API_URL = "https://your-api-endpoint.com/events"; // Replace with actual endpoint
 
-    function fetchEvents() {
-      renderForm(); // Ensure form always renders
-      fetch(SHEET_URL)
-        .then((res) => res.json())
-        .then((data) => {
-          events = data;
-          renderEvents();
-        })
-        .catch((err) => {
-          console.error("Error fetching events:", err);
-          renderEvents();
+    async function fetchEvents() {
+      try {
+        const res = await fetch(API_URL);
+        return await res.json();
+      } catch (err) {
+        console.error("Error loading events:", err);
+        return [];
+      }
+    }
+
+    async function saveEventToServer(event) {
+      try {
+        const res = await fetch(API_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(event),
         });
+        return await res.json();
+      } catch (err) {
+        console.error("Error saving event:", err);
+      }
     }
 
-    function addEventToSheet(eventData) {
-      fetch(SHEET_URL, {
-        method: "POST",
-        body: JSON.stringify(eventData),
-        headers: { "Content-Type": "application/json" },
-      }).then(fetchEvents);
-    }
-
-    function deleteEventFromSheet(id) {
-      fetch(SHEET_URL, {
-        method: "POST",
-        body: JSON.stringify({ id }),
-        headers: { "Content-Type": "application/json", "X-HTTP-Method-Override": "DELETE" },
-      }).then(fetchEvents);
+    async function deleteEventFromServer(id, password) {
+      try {
+        const res = await fetch(`${API_URL}/${id}`, {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ password }),
+        });
+        return res.ok;
+      } catch (err) {
+        console.error("Error deleting event:", err);
+        return false;
+      }
     }
 
     function renderForm() {
@@ -99,7 +105,7 @@
         trigger.addEventListener("click", () => hiddenInput.showPicker());
       }, 0);
 
-      document.getElementById("createEvent").addEventListener("click", () => {
+      document.getElementById("createEvent").addEventListener("click", async () => {
         const title = document.getElementById("eventTitle").value;
         const datetime = document.getElementById("eventDate").value;
         const password = document.getElementById("eventPassword").value;
@@ -113,17 +119,20 @@
           return;
         }
 
-        const newEvent = { id: Date.now().toString(), title, datetime, bg, text, fontSize, titleSize, password };
-        addEventToSheet(newEvent);
+        const newEvent = { title, datetime, password, bg, text, fontSize, titleSize };
+        await saveEventToServer(newEvent);
+        renderEvents();
       });
     }
 
-    function renderEvents() {
+    async function renderEvents() {
       const list = document.getElementById("eventList");
       if (!list) return;
       list.innerHTML = "";
 
-      events.forEach((event, index) => {
+      const events = await fetchEvents();
+
+      events.forEach((event) => {
         const box = document.createElement("div");
         box.style.cssText = `
           padding: 20px;
@@ -187,12 +196,13 @@
           cursor: pointer;
         `;
 
-        delBtn.onclick = () => {
+        delBtn.onclick = async () => {
           const enteredPass = prompt("Enter password to delete this event:");
-          if (enteredPass === event.password) {
-            deleteEventFromSheet(event.id);
+          const ok = await deleteEventFromServer(event.id, enteredPass);
+          if (ok) {
+            renderEvents();
           } else {
-            alert("Incorrect password. Deletion cancelled.");
+            alert("Incorrect password or delete failed.");
           }
         };
 
@@ -201,6 +211,7 @@
       });
     }
 
-    fetchEvents();
+    renderForm();
+    renderEvents();
   });
 </script>
