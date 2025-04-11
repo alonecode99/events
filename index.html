@@ -152,32 +152,55 @@
         title.style.marginBottom = "10px";
         box.appendChild(title);
 
-        const timer = document.createElement("div");
-        timer.style.fontWeight = "bold";
-        timer.style.marginTop = "8px";
-        box.appendChild(timer);
+        const viewBtn = document.createElement("button");
+        viewBtn.textContent = "🔓 View Event";
+        viewBtn.style.cssText = `
+          margin-bottom: 10px;
+          padding: 6px 10px;
+          font-size: 12px;
+          border-radius: 6px;
+          border: none;
+          background: #3498db;
+          color: white;
+          cursor: pointer;
+        `;
 
-        function update() {
-          const now = new Date();
-          const target = new Date(event.datetime);
-          let diff = target - now;
-          let mode = "left";
-
-          if (diff < 0) {
-            diff = Math.abs(diff);
-            mode = "since";
+        let timer;
+        viewBtn.onclick = () => {
+          const input = prompt("Enter password");
+          if (input !== event.password) {
+            alert("Incorrect password.");
+            return;
           }
+          if (!timer) {
+            timer = document.createElement("div");
+            timer.style.fontWeight = "bold";
+            timer.style.marginTop = "8px";
+            box.appendChild(timer);
 
-          const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-          const hours = Math.floor((diff / (1000 * 60 * 60)) % 24);
-          const minutes = Math.floor((diff / (1000 * 60)) % 60);
-          const seconds = Math.floor((diff / 1000) % 60);
+            function update() {
+              const now = new Date();
+              const target = new Date(event.datetime);
+              let diff = target - now;
+              let mode = "left";
 
-          timer.textContent = `${days}d ${hours}h ${minutes}m ${seconds}s ${mode}`;
-        }
+              if (diff < 0) {
+                diff = Math.abs(diff);
+                mode = "since";
+              }
 
-        update();
-        const interval = setInterval(update, 1000);
+              const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+              const hours = Math.floor((diff / (1000 * 60 * 60)) % 24);
+              const minutes = Math.floor((diff / (1000 * 60)) % 60);
+              const seconds = Math.floor((diff / 1000) % 60);
+
+              timer.textContent = `${days}d ${hours}h ${minutes}m ${seconds}s ${mode}`;
+            }
+
+            update();
+            const interval = setInterval(update, 1000);
+          }
+        };
 
         const delBtn = document.createElement("button");
         delBtn.textContent = "Delete";
@@ -203,13 +226,13 @@
 
           const ok = await deleteEventFromServer(event.id);
           if (ok) {
-            clearInterval(interval);
             renderEvents();
           } else {
             alert("Delete failed.");
           }
         };
 
+        box.appendChild(viewBtn);
         box.appendChild(delBtn);
         list.appendChild(box);
       });
